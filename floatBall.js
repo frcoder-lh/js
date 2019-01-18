@@ -4,9 +4,8 @@
  * 只需在目标页面body中追加本js文件即可使用
  * <script src="./floatBall.js"></script>
  */
-
-(function f() {
-    var url = "https://www.baidu.com/";
+floatBall("https://www.baidu.com/");
+function floatBall(url) {
     var styleStr = "";
     styleStr += "\n";
     styleStr += "@keyframes scaleToggleOne { 0 {\n";
@@ -179,4 +178,4 @@
     document.querySelector(".livechat-girl").onclick = function () {
         window.location.href = url;
     };
-})();
+}
