@@ -1,3 +1,8 @@
+/**
+ * 记录页面的请求历史
+ *
+ * 使用：apiHistory[0].api.send()
+ */
 (function initApiListener() {
 
     class ApiHistory extends Array {
@@ -11,65 +16,20 @@
     }
 
     class Api {
-        static XMLHttpRequestType = "XMLHttpRequest";
-        static FetchType = "Fetch";
 
-        constructor(type) {
-            this.type = type;
-            if (this.type == Api.XMLHttpRequestType) {
-                this.openArguments = arguments[1];
-                this.sendArguments = arguments[2];
-            } else if (this.type == Api.FetchType) {
-                this.fetchArguments = arguments[1];
-            }
+        constructor() {
         }
 
         getUrl() {
-            if (this.type == Api.XMLHttpRequestType) {
-                return this.openArguments[1];
-            } else if (this.type == Api.FetchType) {
-                if (this.fetchArguments[0] instanceof Request) {
-                    return this.fetchArguments[0].url;
-                } else {
-                    return this.fetchArguments[0];
-                }
-            }
         }
 
         setUrl(url) {
-            if (this.type == Api.XMLHttpRequestType) {
-                this.openArguments[1] = url;
-            } else if (this.type == Api.FetchType) {
-                if (this.fetchArguments[0] instanceof Request) {
-                    return this.fetchArguments[0].url = url;
-                } else {
-                    return this.fetchArguments[0] = url;
-                }
-            }
         }
 
         getBody() {
-            if (this.type == Api.XMLHttpRequestType) {
-                return this.sendArguments[0];
-            } else if (this.type == Api.FetchType) {
-                if (this.fetchArguments[0] instanceof Request) {
-                    return this.fetchArguments[0].body;
-                } else {
-                    return this.fetchArguments[1].body;
-                }
-            }
         }
 
         setBody(body) {
-            if (this.type == Api.XMLHttpRequestType) {
-                this.sendArguments[0] = body;
-            } else if (this.type == Api.FetchType) {
-                if (this.fetchArguments[0] instanceof Request) {
-                    this.fetchArguments[0].body = body;
-                } else {
-                    this.fetchArguments[1].body = body;
-                }
-            }
         }
 
         handle(url = a => a, body = a => a) {
@@ -78,18 +38,90 @@
             return this;
         }
 
+        sendOnce() {
+        }
+
         send(n = 1) {
             for (let i = 0; i < n; i++) {
                 if (this.url) this.setUrl(this.url(this.getUrl(), i));
                 if (this.body) this.setBody(this.body(this.getBody(), i));
-                if (this.type == Api.XMLHttpRequestType) {
-                    let xhr = new XMLHttpRequest();
-                    xhr.open(...this.openArguments);
-                    xhr.send(...this.sendArguments);
-                } else if (this.type == Api.FetchType) {
-                    return fetch(...this.fetchArguments);
-                }
+                this.sendOnce();
             }
+        }
+    }
+
+    class XMLHttpRequestApi extends Api {
+
+        constructor() {
+            super();
+            this.openArguments = arguments[0];
+            this.sendArguments = arguments[1];
+        }
+
+        getUrl() {
+            return this.openArguments[1];
+        }
+
+        setUrl(url) {
+            this.openArguments[1] = url;
+        }
+
+        getBody() {
+            return this.sendArguments[0];
+        }
+
+        setBody(body) {
+            this.sendArguments[0] = body;
+        }
+
+        sendOnce() {
+            let xhr = new XMLHttpRequest();
+            xhr.open(...this.openArguments);
+            xhr.send(...this.sendArguments);
+        }
+    }
+
+    class FetchApi extends Api {
+
+        constructor() {
+            super();
+            this.fetchArguments = arguments[0];
+        }
+
+        getUrl() {
+            if (this.fetchArguments[0] instanceof Request) {
+                return this.fetchArguments[0].url;
+            } else {
+                return this.fetchArguments[0];
+            }
+        }
+
+        setUrl(url) {
+            if (this.fetchArguments[0] instanceof Request) {
+                return this.fetchArguments[0].url = url;
+            } else {
+                return this.fetchArguments[0] = url;
+            }
+        }
+
+        getBody() {
+            if (this.fetchArguments[0] instanceof Request) {
+                return this.fetchArguments[0].body;
+            } else {
+                return this.fetchArguments[1].body;
+            }
+        }
+
+        setBody(body) {
+            if (this.fetchArguments[0] instanceof Request) {
+                this.fetchArguments[0].body = body;
+            } else {
+                this.fetchArguments[1].body = body;
+            }
+        }
+
+        sendOnce() {
+            return fetch(...this.fetchArguments);
         }
     }
 
@@ -106,7 +138,7 @@
         this.openArguments = arguments;
         this.addEventListener('load', function () {
             console.debug('load', this.responseURL, this.status, this.response);
-            window.apiHistory.push({api: new Api(Api.XMLHttpRequestType, this.openArguments, this.sendArguments), response: this.response});
+            window.apiHistory.push({api: new XMLHttpRequestApi(this.openArguments, this.sendArguments), response: this.response});
         });
 
         originOpen.apply(this, arguments);
@@ -123,7 +155,7 @@
     window.fetch = function () {
         console.debug("fetch", arguments);
         let responsePromise = originFetch(...arguments);
-        window.apiHistory.push({api: new Api(Api.FetchType, arguments), response: responsePromise});
+        window.apiHistory.push({api: new FetchApi(arguments), response: responsePromise});
         return responsePromise;
     }
 })();
